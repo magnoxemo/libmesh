@@ -1356,7 +1356,8 @@ public:
                          JUST_COARSENED,
                          INACTIVE,
                          COARSEN_INACTIVE,
-                         INVALID_REFINEMENTSTATE };
+                         INVALID_REFINEMENTSTATE,
+                         AMALGAMATE=false};
 
   /**
    * \returns A constant pointer to the \f$ i^{th} \f$ child for this element.
