@@ -686,8 +686,11 @@ void MeshRefinement::clean_refinement_flags ()
     {
       if (elem->active())
         {
-          elem->set_refinement_flag(Elem::DO_NOTHING);
-          elem->set_p_refinement_flag(Elem::DO_NOTHING);
+          if (elem->refinement_flag()!=Elem::INACTIVE)
+          {
+            elem->set_refinement_flag(Elem::DO_NOTHING);
+            elem->set_p_refinement_flag(Elem::DO_NOTHING);
+          }
         }
       else
         {
