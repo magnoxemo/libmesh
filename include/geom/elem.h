@@ -176,7 +176,7 @@ public:
   /**
    * \returns A non-const pointer to local \p Node \p i.
    */
-  Node * node_ptr (const unsigned int i);mesh_base
+  Node * node_ptr (const unsigned int i);
 
   /**
    * \returns A const reference to local \p Node \p i.
