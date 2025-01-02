@@ -176,7 +176,7 @@ public:
   /**
    * \returns A non-const pointer to local \p Node \p i.
    */
-  Node * node_ptr (const unsigned int i);
+  Node * node_ptr (const unsigned int i);mesh_base
 
   /**
    * \returns A const reference to local \p Node \p i.
@@ -1357,7 +1357,7 @@ public:
                          INACTIVE,
                          COARSEN_INACTIVE,
                          INVALID_REFINEMENTSTATE,
-                         AMALGAMATE=false};
+                         AMALGAMATE;
 
   /**
    * \returns A constant pointer to the \f$ i^{th} \f$ child for this element.
