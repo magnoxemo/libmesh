@@ -1357,7 +1357,7 @@ public:
                          INACTIVE,
                          COARSEN_INACTIVE,
                          INVALID_REFINEMENTSTATE,
-                         AMALGAMATE;
+                         AMALGAMATE=8;
 
   /**
    * \returns A constant pointer to the \f$ i^{th} \f$ child for this element.
