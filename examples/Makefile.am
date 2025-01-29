@@ -42,6 +42,7 @@ SUBDIRS = \
 	miscellaneous/miscellaneous_ex14 \
 	miscellaneous/miscellaneous_ex15 \
 	miscellaneous/miscellaneous_ex16 \
+	miscellaneous/miscellaneous_ex17 \
 	optimization/optimization_ex1 \
 	optimization/optimization_ex2 \
 	subdomains/subdomains_ex1 \
@@ -73,7 +74,8 @@ SUBDIRS = \
 	vector_fe/vector_fe_ex6 \
 	vector_fe/vector_fe_ex7 \
 	vector_fe/vector_fe_ex8 \
-	vector_fe/vector_fe_ex9
+	vector_fe/vector_fe_ex9 \
+	vector_fe/vector_fe_ex10
 
 AUTOMAKE_OPTIONS = subdir-objects
 

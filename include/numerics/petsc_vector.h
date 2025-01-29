@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2024 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2025 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -465,6 +465,14 @@ private:
    * Whether or not the data array is for read only access
    */
   mutable bool _values_read_only;
+
+  /**
+   * \returns A norm of the vector, where the type of norm to compute is
+   * determined by the template parameter N of the PETSc-defined type NormType.
+   * The valid template arguments are NORM_1, NORM_2 and NORM_INFINITY, as used
+   * to define l1_norm(), l2_norm() and linfty_norm().
+   */
+  template <NormType N> Real norm () const;
 };
 
 

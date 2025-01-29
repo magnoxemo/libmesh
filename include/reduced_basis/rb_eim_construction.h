@@ -165,6 +165,13 @@ public:
   virtual void print_info();
 
   /**
+   * Rescale solution snapshots so that they all have unity norm. This is relevant
+   * if training samples have differing magnitudes and we want to approximate them
+   * all with equal accuracy.
+   */
+  void apply_normalization_to_solution_snapshots();
+
+  /**
    * Generate the EIM approximation for the specified parametrized function
    * using either POD or the Greedy Algorithm. Return the final tolerance.
    */
@@ -230,6 +237,21 @@ public:
    */
   unsigned int get_Nmax() const;
   virtual void set_Nmax(unsigned int Nmax);
+
+  /**
+   * Call this method to set _set_Nmax_from_n_snapshots=true and
+   * _Nmax_from_n_snapshots_increment=increment. This means that
+   * we will overrule Nmax to be n_snapshots + increment, where
+   * increment can be positive or negative (typically it should be
+   * negative to limit Nmax to be less that the number of snapshots).
+   */
+  void enable_set_Nmax_from_n_snapshots(int increment);
+
+  /**
+   * Call this method to set _set_Nmax_from_n_snapshots=false and
+   * reset _Nmax_from_n_snapshots_increment to 0.
+   */
+  void disable_set_Nmax_from_n_snapshots();
 
   /**
    * Get the maximum value (across all processors) from
@@ -464,6 +486,18 @@ private:
    * Maximum number of EIM basis functions we are willing to use.
    */
   unsigned int _Nmax;
+
+  /**
+   * If _set_Nmax_from_n_snapshots=true, then we overrule Nmax to be
+   * Nmax += _Nmax_from_n_snapshots_increment. Note that the "increment
+   * can be positive or negative. Typically we would want to set the
+   * increment to be negative or 0 to limit Nmax based on the number
+   * of available snapshots, but in some rare cases it could make sense
+   * to set it to a positive value, e.g. if we are appending to a basis
+   * that has already been generated via a previous training.
+   */
+  bool _set_Nmax_from_n_snapshots;
+  int _Nmax_from_n_snapshots_increment;
 
   /**
    * Relative and absolute tolerances for training the EIM approximation.

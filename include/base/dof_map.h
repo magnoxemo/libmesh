@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2024 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2025 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -719,7 +719,7 @@ public:
    * \returns The number of degrees of freedom on each partition for a
    * particular variable \p vn.
    */
-  std::vector<dof_id_type> n_dofs_on_each_processor(const unsigned int vn) const
+  std::vector<dof_id_type> n_dofs_per_processor(const unsigned int vn) const
   {
     std::vector<dof_id_type> n_local_dofs(this->n_processors(), 0);
     this->comm().allgather(this->n_local_dofs(vn), n_local_dofs);

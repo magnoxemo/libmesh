@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2024 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2025 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -312,6 +312,16 @@ public:
                        const int timestep,
                        const Real time,
                        const std::set<std::string> * system_names=nullptr);
+
+  /**
+   * Writes out the solution for no specific time or timestep.
+   * \param fname Name of the file to write to
+   * \param es EquationSystems object which contains the solution vector.
+   * \param system_names Optional list of systems to write solutions for.
+   */
+  virtual void write_equation_systems (const std::string & fname,
+                                       const EquationSystems & es,
+                                       const std::set<std::string> * system_names=nullptr) override;
 
   /**
    * Write elemsets stored on the Mesh to file.

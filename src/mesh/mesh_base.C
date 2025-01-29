@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2024 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2025 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -2083,8 +2083,20 @@ MeshBase::copy_constraint_rows(const SparseMatrix<T> & constraint_operator)
       if (indices.size() == 1 &&
           values[0] == T(1))
         {
-          existing_unconstrained_nodes.insert(i);
-          existing_unconstrained_columns.emplace(indices[0],i);
+          // If we have multiple simple Ui=Uj constraints, let the
+          // first one be our "unconstrained" node and let the others
+          // be constrained to it.
+          if (existing_unconstrained_columns.find(indices[0]) !=
+              existing_unconstrained_columns.end())
+            {
+              const auto j = indices[0];
+              columns[j].emplace_back(i, 1);
+            }
+          else
+            {
+              existing_unconstrained_nodes.insert(i);
+              existing_unconstrained_columns.emplace(indices[0],i);
+            }
         }
       else
         for (auto jj : index_range(indices))

@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2024 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2025 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -48,9 +48,10 @@ PetscMatrixBase<T>::PetscMatrixBase(const Parallel::Communicator & comm_in) :
 // for destroying it
 template <typename T>
 PetscMatrixBase<T>::PetscMatrixBase(Mat mat_in,
-                                    const Parallel::Communicator & comm_in) :
+                                    const Parallel::Communicator & comm_in,
+                                    const bool destroy_on_exit) :
   SparseMatrix<T>(comm_in),
-  _destroy_mat_on_exit(false)
+  _destroy_mat_on_exit(destroy_on_exit)
 {
   this->_mat = mat_in;
   this->_is_initialized = true;

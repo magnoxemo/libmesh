@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2024 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2025 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -93,16 +93,6 @@ protected:
    * aren't responsible for cleaning up this one.
    */
   Mat _mat;
-
-private:
-  /**
-   * Some PETSc preconditioners (ILU, LU) don't work in parallel.  This function
-   * is called from set_petsc_preconditioner_type() to set additional options
-   * for those so-called sub-preconditioners.  This method ends up being static
-   * so that it can be called from set_petsc_preconditioner_type().  Not sure
-   * why set_petsc_preconditioner_type() needs to be static though...
-   */
-  static void set_petsc_subpreconditioner_type(const PCType type, PC & pc);
 };
 
 } // namespace libMesh

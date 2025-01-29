@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2024 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2025 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -120,6 +120,16 @@ public:
    * \returns Entry \p i of the vector as a writable reference.
    */
   T & operator() (const unsigned int i);
+
+  /**
+   * \returns Entry \p i of the vector as a const reference.
+   */
+  const T & operator[] (const unsigned int i) const { return (*this)(i); }
+
+  /**
+   * \returns Entry \p i of the vector as a writable reference.
+   */
+  T & operator[] (const unsigned int i) { return (*this)(i); }
 
   virtual T el(const unsigned int i) const override final
   { return (*this)(i); }

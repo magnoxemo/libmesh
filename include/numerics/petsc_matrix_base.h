@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2024 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2025 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -84,14 +84,15 @@ public:
 
   /**
    * Constructor.  Creates a PetscMatrixBase assuming you already have a
-   * valid Mat object.  In this case, m is NOT destroyed by the
+   * valid Mat object.  In this case, m may not be destroyed by the
    * PetscMatrixBase destructor when this object goes out of scope.  This
    * allows ownership of m to remain with the original creator, and to
    * simply provide additional functionality with the PetscMatrixBase.
    */
   explicit
   PetscMatrixBase (Mat m,
-                   const Parallel::Communicator & comm_in);
+                   const Parallel::Communicator & comm_in,
+                   bool destroy_on_exit = false);
 
   /**
    * This class manages a C-style struct (Mat) manually, so we

@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2024 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2025 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -2001,12 +2001,20 @@ void ExodusII_IO::write_timestep (const std::string & fname,
                                   const std::set<std::string> * system_names)
 {
   _timestep = timestep;
-  write_equation_systems(fname,es,system_names);
+  MeshOutput<MeshBase>::write_equation_systems(fname,es,system_names);
 
   if (MeshOutput<MeshBase>::mesh().processor_id())
     return;
 
   exio_helper->write_timestep(timestep, time);
+}
+
+
+void ExodusII_IO::write_equation_systems (const std::string & fname,
+                                          const EquationSystems & es,
+                                          const std::set<std::string> * system_names)
+{
+  write_timestep(fname, es, 1, 0, system_names);
 }
 
 
@@ -2554,6 +2562,13 @@ void ExodusII_IO::write_timestep (const std::string &,
   libmesh_error_msg("ERROR, ExodusII API is not defined.");
 }
 
+
+void ExodusII_IO::write_equation_systems (const std::string &,
+                                          const EquationSystems &,
+                                          const std::set<std::string> *)
+{
+  libmesh_error_msg("ERROR, ExodusII API is not defined.");
+}
 
 
 void ExodusII_IO::write_elemsets()

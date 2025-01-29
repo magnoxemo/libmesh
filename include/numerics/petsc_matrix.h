@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2024 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2025 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -36,7 +36,7 @@
 #include <mutex>
 #endif
 
-
+class PetscMatrixTest;
 
 namespace libMesh
 {
@@ -76,14 +76,15 @@ public:
 
   /**
    * Constructor.  Creates a PetscMatrix assuming you already have a
-   * valid Mat object.  In this case, m is NOT destroyed by the
+   * valid Mat object.  In this case, m may not be destroyed by the
    * PetscMatrix destructor when this object goes out of scope.  This
    * allows ownership of m to remain with the original creator, and to
    * simply provide additional functionality with the PetscMatrix.
    */
   explicit
   PetscMatrix (Mat m,
-               const Parallel::Communicator & comm_in);
+               const Parallel::Communicator & comm_in,
+               bool destroy_on_exit = false);
 
   /**
    * Constructor. Creates and initializes a PetscMatrix with the given
@@ -241,6 +242,8 @@ public:
 
   virtual Real l1_norm () const override;
 
+  virtual Real frobenius_norm () const;
+
   virtual Real linfty_norm () const override;
 
   /**
@@ -284,7 +287,52 @@ public:
 
   virtual void scale(const T scale) override;
 
+#if PETSC_RELEASE_GREATER_EQUALS(3, 23, 0)
+  /**
+   * Creates a copy of the current hash table matrix and then performs assembly. This is very useful
+   * in cases where you are not done filling this matrix but want to be able to read the current
+   * state of it
+   */
+  std::unique_ptr<PetscMatrix<T>> copy_from_hash();
+#endif
+
+  virtual bool supports_hash_table() const override;
+
+  virtual void reset_memory() override;
+
 protected:
+  /**
+   * Perform matrix initialization steps sans preallocation
+   * @param m The global number of rows
+   * @param n The global number of columns
+   * @param m_l The local number of rows
+   * @param n_l The local number of columns
+   * @param blocksize The matrix block size
+   */
+  void init_without_preallocation (numeric_index_type m,
+                                   numeric_index_type n,
+                                   numeric_index_type m_l,
+                                   numeric_index_type n_l,
+                                   numeric_index_type blocksize);
+
+  /*
+   * Performs matrix preallcation
+   * \param m_l The local number of rows.
+   * \param n_nz array containing the number of nonzeros in each row of the DIAGONAL portion of the local submatrix.
+   * \param n_oz Array containing the number of nonzeros in each row of the OFF-DIAGONAL portion of the local submatrix.
+   * \param blocksize Optional value indicating dense coupled blocks for systems with multiple variables all of the same    */
+  void preallocate(numeric_index_type m_l,
+                   const std::vector<numeric_index_type> & n_nz,
+                   const std::vector<numeric_index_type> & n_oz,
+                   numeric_index_type blocksize);
+
+  /**
+   * Finish up the initialization process. This method does a few things which include
+   * - Setting the option to make new nonzeroes an error (otherwise users will just have a silent
+       (often huge) performance penalty
+   * - Marking the matrix as initialized
+   */
+  void finish_initialization();
 
   /**
    * This function either creates or re-initializes a matrix called \p
@@ -313,6 +361,16 @@ private:
 #else
   mutable Threads::spin_mutex _petsc_matrix_mutex;
 #endif
+
+  /**
+   * \returns A norm of the matrix, where the type of norm to compute is
+   * determined by the template parameter N of the PETSc-defined type NormType.
+   * The valid template arguments are NORM_1, NORM_FROBENIUS and NORM_INFINITY,
+   * as used to define l1_norm(), frobenius_norm() and linfty_norm().
+   */
+  template <NormType N> Real norm () const;
+
+  friend class ::PetscMatrixTest;
 };
 
 } // namespace libMesh

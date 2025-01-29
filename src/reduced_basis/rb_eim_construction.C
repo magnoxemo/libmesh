@@ -87,21 +87,6 @@ void add(DataMap & u, const Number k, const DataMap & v)
     }
 }
 
-// Implement u <- k*u
-template <typename DataMap>
-void scale(DataMap & u, const Number k)
-{
-  for (auto & it : u)
-    {
-      std::vector<std::vector<Number>> & outer_vec = it.second;
-      for (auto & inner_vec : outer_vec)
-        for (auto & value : inner_vec)
-          {
-            value *= k;
-          }
-    }
-}
-
 void add_node_data_map(RBEIMConstruction::NodeDataMap & u, const Number k, const RBEIMConstruction::NodeDataMap & v)
 {
   for (auto & [key, vec_u] : u)
@@ -117,18 +102,6 @@ void add_node_data_map(RBEIMConstruction::NodeDataMap & u, const Number k, const
     }
 }
 
-void scale_node_data_map(RBEIMConstruction::NodeDataMap & u, const Number k)
-{
-  for (auto & it : u)
-    {
-      std::vector<Number> & vec = it.second;
-      for (auto & value : vec)
-        {
-          value *= k;
-        }
-    }
-}
-
 }
 
 RBEIMConstruction::RBEIMConstruction (EquationSystems & es,
@@ -137,6 +110,8 @@ RBEIMConstruction::RBEIMConstruction (EquationSystems & es,
   : RBConstructionBase(es, name_in, number_in),
     best_fit_type_flag(PROJECTION_BEST_FIT),
     _Nmax(0),
+    _set_Nmax_from_n_snapshots(false),
+    _Nmax_from_n_snapshots_increment(0),
     _rel_training_tolerance(1.e-4),
     _abs_training_tolerance(1.e-12),
     _max_abs_value_in_training_set(0.),
@@ -215,6 +190,12 @@ void RBEIMConstruction::print_info()
   libMesh::out << std::endl << "RBEIMConstruction parameters:" << std::endl;
   libMesh::out << "system name: " << this->name() << std::endl;
   libMesh::out << "Nmax: " << get_Nmax() << std::endl;
+  if (_set_Nmax_from_n_snapshots)
+  {
+    libMesh::out << "Overruling Nmax based on number of snapshots, with increment set to "
+      << _Nmax_from_n_snapshots_increment
+      << std::endl;
+  }
   libMesh::out << "Greedy relative error tolerance: " << get_rel_training_tolerance() << std::endl;
   libMesh::out << "Greedy absolute error tolerance: " << get_abs_training_tolerance() << std::endl;
   libMesh::out << "Number of parameters: " << get_n_params() << std::endl;
@@ -434,6 +415,9 @@ void RBEIMConstruction::set_rb_construction_parameters(unsigned int n_training_s
 
 Real RBEIMConstruction::train_eim_approximation()
 {
+  if (_normalize_solution_snapshots)
+    apply_normalization_to_solution_snapshots();
+
   if(best_fit_type_flag == POD_BEST_FIT)
     {
       train_eim_approximation_with_POD();
@@ -644,11 +628,69 @@ Real RBEIMConstruction::train_eim_approximation_with_greedy()
   return greedy_error;
 }
 
+void RBEIMConstruction::apply_normalization_to_solution_snapshots()
+{
+  LOG_SCOPE("apply_normalization_to_solution_snapshots()", "RBEIMConstruction");
+
+  libMesh::out << "Normalizing solution snapshots" << std::endl;
+
+  bool apply_comp_scaling = !get_rb_eim_evaluation().scale_components_in_enrichment().empty();
+  unsigned int n_snapshots = get_n_training_samples();
+  RBEIMEvaluation & rbe = get_rb_eim_evaluation();
+
+  for (unsigned int i=0; i<n_snapshots; i++)
+    {
+      if (rbe.get_parametrized_function().on_mesh_sides())
+        {
+          Real norm_val = std::sqrt(std::real(side_inner_product(
+            _local_side_parametrized_functions_for_training[i],
+            _local_side_parametrized_functions_for_training[i],
+            apply_comp_scaling)));
+
+          if (norm_val > 0.)
+            scale_parametrized_function(_local_side_parametrized_functions_for_training[i], 1./norm_val);
+        }
+      else if (rbe.get_parametrized_function().on_mesh_nodes())
+        {
+          Real norm_val = std::sqrt(std::real(node_inner_product(
+            _local_node_parametrized_functions_for_training[i],
+            _local_node_parametrized_functions_for_training[i],
+            apply_comp_scaling)));
+
+          if (norm_val > 0.)
+            scale_node_parametrized_function(_local_node_parametrized_functions_for_training[i], 1./norm_val);
+        }
+      else
+        {
+          Real norm_val = std::sqrt(std::real(inner_product(
+            _local_parametrized_functions_for_training[i],
+            _local_parametrized_functions_for_training[i],
+            apply_comp_scaling)));
+
+          if (norm_val > 0.)
+            scale_parametrized_function(_local_parametrized_functions_for_training[i], 1./norm_val);
+        }
+    }
+}
+
 Real RBEIMConstruction::train_eim_approximation_with_POD()
 {
   LOG_SCOPE("train_eim_approximation_with_POD()", "RBEIMConstruction");
 
   RBEIMEvaluation & rbe = get_rb_eim_evaluation();
+
+  unsigned int n_snapshots = get_n_training_samples();
+
+  // If _set_Nmax_from_n_snapshots=true, then we overrule Nmax.
+  if (_set_Nmax_from_n_snapshots)
+  {
+    int updated_Nmax = (static_cast<int>(n_snapshots) + _Nmax_from_n_snapshots_increment);
+
+    // We only overrule _Nmax if updated_Nmax is positive, since if Nmax=0 then we'll skip
+    // training here entirely, which is typically not what we want.
+    if (updated_Nmax > 0)
+      _Nmax = static_cast<unsigned int>(updated_Nmax);
+  }
 
   // _eim_projection_matrix is not used in the POD case, but we resize it here in any case
   // to be consistent with what we do in train_eim_approximation_with_greedy().
@@ -668,7 +710,6 @@ Real RBEIMConstruction::train_eim_approximation_with_POD()
   // Set up the POD "correlation matrix". This enables us to compute the POD via the
   // "method of snapshots", in which we compute a low rank representation of the
   // n_snapshots x n_snapshots matrix.
-  unsigned int n_snapshots = get_n_training_samples();
   DenseMatrix<Number> correlation_matrix(n_snapshots,n_snapshots);
 
   std::cout << "Start computing correlation matrix" << std::endl;
@@ -823,13 +864,13 @@ Real RBEIMConstruction::train_eim_approximation_with_POD()
 
           if (!is_zero_bf)
             {
-              scale(v, 0.);
+              scale_parametrized_function(v, 0.);
 
               for ( unsigned int i=0; i<n_snapshots; ++i )
                 add(v, U.el(i, j), _local_side_parametrized_functions_for_training[i] );
 
               Real norm_v = std::sqrt(sigma(j));
-              scale(v, 1./norm_v);
+              scale_parametrized_function(v, 1./norm_v);
             }
 
           libmesh_try
@@ -889,13 +930,13 @@ Real RBEIMConstruction::train_eim_approximation_with_POD()
 
           if (!is_zero_bf)
             {
-              scale_node_data_map(v, 0.);
+              scale_node_parametrized_function(v, 0.);
 
               for ( unsigned int i=0; i<n_snapshots; ++i )
                 add_node_data_map(v, U.el(i, j), _local_node_parametrized_functions_for_training[i] );
 
               Real norm_v = std::sqrt(sigma(j));
-              scale_node_data_map(v, 1./norm_v);
+              scale_node_parametrized_function(v, 1./norm_v);
             }
 
           libmesh_try
@@ -955,13 +996,13 @@ Real RBEIMConstruction::train_eim_approximation_with_POD()
 
           if (!is_zero_bf)
             {
-              scale(v, 0.);
+              scale_parametrized_function(v, 0.);
 
               for ( unsigned int i=0; i<n_snapshots; ++i )
                 add(v, U.el(i, j), _local_parametrized_functions_for_training[i] );
 
               Real norm_v = std::sqrt(sigma(j));
-              scale(v, 1./norm_v);
+              scale_parametrized_function(v, 1./norm_v);
             }
 
           libmesh_try
@@ -1096,6 +1137,18 @@ unsigned int RBEIMConstruction::get_Nmax() const
 void RBEIMConstruction::set_Nmax(unsigned int Nmax)
 {
   _Nmax = Nmax;
+}
+
+void RBEIMConstruction::enable_set_Nmax_from_n_snapshots(int increment)
+{
+  _set_Nmax_from_n_snapshots = true;
+  _Nmax_from_n_snapshots_increment = increment;
+}
+
+void RBEIMConstruction::disable_set_Nmax_from_n_snapshots()
+{
+  _set_Nmax_from_n_snapshots = false;
+  _Nmax_from_n_snapshots_increment = 0;
 }
 
 Real RBEIMConstruction::get_max_abs_value_in_training_set() const
@@ -2959,8 +3012,12 @@ void RBEIMConstruction::scale_node_parametrized_function(NodeDataMap & local_pf,
 
 unsigned int RBEIMConstruction::get_random_int_0_to_n(unsigned int n)
 {
-  std::random_device seed;
-  std::mt19937 gen{seed()};
+  // std::random_device seed;
+  // std::mt19937 gen{seed()};
+  // We do not use a random seed here, since we generally prefer our results
+  // to reproducible, rather than fully random. If desired we could provide an
+  // option to use the random seed approach (commented out above).
+  std::default_random_engine gen;
   std::uniform_int_distribution<> dist{0, static_cast<int>(n)};
   return dist(gen);
 }

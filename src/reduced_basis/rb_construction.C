@@ -1453,6 +1453,20 @@ void RBConstruction::train_reduced_basis_with_POD()
     }
   libMesh::out << std::endl;
 
+  if (_normalize_solution_snapshots)
+  {
+    libMesh::out << "Normalizing solution snapshots" << std::endl;
+    for (unsigned int i=0; i<n_snapshots; i++)
+      {
+        get_non_dirichlet_inner_product_matrix_if_avail()->vector_mult(
+          *inner_product_storage_vector, *POD_snapshots[i]);
+        Real norm = std::sqrt(std::real(POD_snapshots[i]->dot(*inner_product_storage_vector)));
+
+        if (norm > 0.)
+          POD_snapshots[i]->scale(1./norm);
+      }
+  }
+
   // Set up the "correlation matrix"
   DenseMatrix<Number> correlation_matrix(n_snapshots,n_snapshots);
   for (unsigned int i=0; i<n_snapshots; i++)
@@ -1478,7 +1492,8 @@ void RBConstruction::train_reduced_basis_with_POD()
   DenseMatrix<Number> VT( n_snapshots, n_snapshots );
   correlation_matrix.svd(sigma, U, VT );
 
-  libmesh_error_msg_if(sigma(0) == 0., "Zero singular value encountered in POD construction");
+  if (sigma(0) == 0.)
+    return;
 
   // Add dominant vectors from the POD as basis functions.
   unsigned int j = 0;
