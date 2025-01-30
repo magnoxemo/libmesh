@@ -86,8 +86,24 @@ int main(int argc, char** argv) {
 
         for (auto dof_index : dof_indices) {
             if (dof_index %2 ==0){
-                const unsigned int cluster_id =elem->get_extra_integer(index);
-                system.solution->set(dof_index, cluster_id);
+
+                bool belong_to_a_cluster =false ;
+                for (unsigned int side = 0; side < elem->n_sides(); ++side){
+                    const Elem* neighbor = elem->neighbor_ptr(side);
+
+                    if (neighbor){
+                        if (elem->get_extra_integer(index)==neighbor->get_extra_integer(index)){
+                            belong_to_a_cluster = true ;
+                        }
+                    }
+                }
+                if (!belong_to_a_cluster){
+                    system.solution->set(dof_index,0);
+                }else if (belong_to_a_cluster){
+                    const unsigned int cluster_id =elem->get_extra_integer(index);
+                    system.solution->set(dof_index, cluster_id);
+                }
+
             }
         }
     }
