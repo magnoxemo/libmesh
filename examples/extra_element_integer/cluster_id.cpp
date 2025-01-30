@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
     mesh.print_info();
     equation_systems.print_info();
 
-    ExodusII_IO(mesh).write_equation_systems("output.exo", equation_systems);
+    ExodusII_IO(mesh).write_discontinuous_equation_systems("output.exo", equation_systems);
 
     return 0;
 }
