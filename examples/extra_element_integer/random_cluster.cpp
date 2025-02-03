@@ -44,8 +44,7 @@ void PopulateRandomIntegers(libMesh::Mesh & mesh, LinearImplicitSystem& system, 
         dof_map.dof_indices(elem, dof_indices);
         int random_int = rand() %5;
 
-        system.solution->set(dof_indices[1], random_int);
-        elem->set_extra_integer(index, 5-random_int);
+        system.solution->set(dof_indices[1], 5-random_int);
 
     }
 }
@@ -58,15 +57,10 @@ void AddVaribalesToSystem(LinearImplicitSystem& system, libMesh::EquationSystems
     equation_systems.init();
 }
 
-DofMap& CreateDegreesofFreedomMap(LinearImplicitSystem& system){
-    return  system.get_dof_map();
-}
 
-void FindCluster(libMesh::Mesh & mesh, libMesh::DofMap & dof_map, LinearImplicitSystem& system, const unsigned int index ) {
-
-    for (const auto &elem: mesh.element_ptr_range()) {
-
-        std::vector <dof_id_type> dof_indices;
+void FindCluster(libMesh::Mesh & mesh, libMesh::DofMap & dof_map, LinearImplicitSystem& system, const unsigned int index) {
+    for (const auto &elem : mesh.element_ptr_range()) {
+        std::vector<dof_id_type> dof_indices;
         dof_map.dof_indices(elem, dof_indices);
 
         bool belong_to_a_cluster = false;
@@ -75,19 +69,42 @@ void FindCluster(libMesh::Mesh & mesh, libMesh::DofMap & dof_map, LinearImplicit
             const Elem *neighbor = elem->neighbor_ptr(side);
 
             if (neighbor) {
-                if (elem->get_extra_integer(index) == neighbor->get_extra_integer(index)) {
+                std::vector<dof_id_type> neighbor_dof_indices;
+                dof_map.dof_indices(neighbor, neighbor_dof_indices);
+
+                std::vector<unsigned int> dof_index_vector = {dof_indices[1]};
+                std::vector<unsigned int> neighbor_dof_index_vector = {neighbor_dof_indices[1]};
+                std::vector<double> solution_value(1);
+                std::vector<double> neighbor_solution_value(1);
+
+                system.solution->get(dof_index_vector, solution_value);
+                system.solution->get(neighbor_dof_index_vector, neighbor_solution_value);
+
+                int element_solution = static_cast<int>(solution_value[0]);
+                int neighbor_element_solution = static_cast<int>(neighbor_solution_value[0]);
+
+                if (element_solution == neighbor_element_solution) {
                     belong_to_a_cluster = true;
                 }
             }
         }
+
         if (!belong_to_a_cluster) {
             system.solution->set(dof_indices[0], 0);
-        } else if (belong_to_a_cluster) {
+        } else {
+            std::vector<unsigned int> dof_index_vector = {dof_indices[1]};
+            std::vector<double> solution_value(1);
+            system.solution->get(dof_index_vector, solution_value);
+
+            int element_solution = static_cast<int>(solution_value[0]);
+            elem->set_extra_integer(index, element_solution);
+
             const unsigned int cluster_id = elem->get_extra_integer(index);
             system.solution->set(dof_indices[0], cluster_id);
         }
     }
 }
+
 void CloseSystems(libMesh::Mesh & mesh, LinearImplicitSystem& system,libMesh::EquationSystems & equation_systems, bool print_system_info = true){
 
     system.solution->close();
@@ -97,10 +114,6 @@ void CloseSystems(libMesh::Mesh & mesh, LinearImplicitSystem& system,libMesh::Eq
     }
 }
 
-void WriteEquationSystemOnTheMesh(libMesh::Mesh & mesh, libMesh::EquationSystems & equation_systems ){
-
-    ExodusII_IO(mesh).write_discontinuous_equation_systems("output_rand.e", equation_systems);
-}
 
 int main(int argc, char** argv) {
 
@@ -116,13 +129,15 @@ int main(int argc, char** argv) {
 
     EquationSystems equation_systems(mesh);
     LinearImplicitSystem& system = equation_systems.add_system<LinearImplicitSystem>("cluster");
-    DofMap& dof_map = CreateDegreesofFreedomMap(system);
+
+    DofMap& dof_map = system.get_dof_map();
+
     AddVaribalesToSystem (system, equation_systems);
     PopulateRandomIntegers (mesh,system,index);
     FindCluster(mesh,dof_map,system,index);
     CloseSystems(mesh,system,equation_systems);
 
-    WriteEquationSystemOnTheMesh(mesh,equation_systems);
+    ExodusII_IO(mesh).write_discontinuous_equation_systems("output_rand.e", equation_systems);
 
     return 0;
 }
