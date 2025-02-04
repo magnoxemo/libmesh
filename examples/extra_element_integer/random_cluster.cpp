@@ -12,30 +12,28 @@
 #include <cstdlib>
 #include <ctime>
 #include <vector>
+#include <random>
 
 using namespace libMesh;
 
 void CreateMesh(libMesh::Mesh &mesh, int nx, int ny) {
     libMesh::MeshTools::Generation::build_square(mesh, nx, ny, 0.0, 10.0, 0.0,
-                                                 10.0, libMesh::QUAD4);
+                                                 10.0);
 }
 
 void CreateMesh(libMesh::Mesh &mesh, int nx, int ny, int nz) {
     libMesh::MeshTools::Generation::build_cube(mesh, nx, ny, nz, 0.0, 10.0, 0.0,
-                                               10.0, 0.0, 10.0, libMesh::HEX8);
+                                               10.0, 0.0, 10.0);
 }
 
-void PopulateRandomIntegers(libMesh::Mesh & mesh, LinearImplicitSystem& system, const unsigned int &index ) {
-
+void PopulateRandomIntegers(libMesh::Mesh & mesh,LinearImplicitSystem& system ) {
     DofMap& dof_map = system.get_dof_map();
     for (const auto& elem : mesh.element_ptr_range()) {
 
         std::vector<dof_id_type> dof_indices;
         dof_map.dof_indices(elem, dof_indices);
         int random_int = rand() %5;
-
-        system.solution->set(dof_indices[1], random_int);
-        elem->set_extra_integer(index, 5-random_int);
+        system.solution->set(dof_indices[0], 5-random_int);
 
     }
 }
@@ -59,6 +57,7 @@ void FindCluster(libMesh::Mesh &mesh, libMesh::DofMap &dof_map, libMesh::DofMap 
 
         std::vector<dof_id_type> global_dof_indices;
         dof_map.dof_indices(elem, global_dof_indices, variable_num);
+
 
         std::vector<double> solution_value(1);
         system.solution->get(global_dof_indices, solution_value);
@@ -118,12 +117,12 @@ int main(int argc, char **argv) {
     EquationSystems equation_systems(mesh);
     LinearImplicitSystem &system = equation_systems.add_system<LinearImplicitSystem>("random_solution_field");
     LinearImplicitSystem &local_system = equation_systems.add_system<LinearImplicitSystem>("cluster_id");
-    DofMap &dof_map = system.get_dof_map();
-    DofMap &local_dof_map = local_system.get_dof_map();
+    DofMap & dof_map = system.get_dof_map();
+    DofMap & local_dof_map =local_system.get_dof_map();
 
-    AddVaribalesToSystem(system, local_system, equation_systems, "random_field", "cluster_id");
+    AddVaribalesToSystem(system,local_system,equation_systems,"random_field","cluster_id");
     PopulateRandomIntegers(mesh, system);
-    FindCluster(mesh, dof_map, local_dof_map, system, local_system, "random_field", equation_systems);
+    FindCluster(mesh, dof_map , local_dof_map, system, local_system,"random_field", equation_systems);
 
     CloseSystems(mesh, system, equation_systems, false);
 
