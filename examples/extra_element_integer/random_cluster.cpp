@@ -39,13 +39,14 @@ void PopulateRandomIntegers(libMesh::Mesh &mesh, LinearImplicitSystem &system) {
 
 void AddVaribalesToSystem(libMesh::EquationSystems &equation_systems,
                           LinearImplicitSystem &system,
-                          LinearImplicitSystem &local_system,
-                          std::string var_name_1, std::string var_name_2) {
-
-  system.add_variable(var_name_1, CONSTANT, MONOMIAL);
-  local_system.add_variable(var_name_2, CONSTANT, MONOMIAL);
-
-  equation_systems.init();
+                          std::string var_name, bool needs_re_init =false) {
+    system.add_variable(var_name, CONSTANT, MONOMIAL);
+    if (!needs_re_init){
+        equation_systems.init();
+    }
+    else{
+        equation_systems.reinit();
+    }
 }
 
 void FindCluster(libMesh::Mesh &mesh, libMesh::DofMap &dof_map,
@@ -122,22 +123,21 @@ int main(int argc, char **argv) {
   srand(time(0));
 
   CreateMesh(mesh, nx, ny);
-  const unsigned int index = mesh.add_elem_integer("cluster_id");
+
   EquationSystems equation_systems(mesh);
-  LinearImplicitSystem &system =
-      equation_systems.add_system<LinearImplicitSystem>(
-          "random_solution_field");
-  LinearImplicitSystem &local_system =
-      equation_systems.add_system<LinearImplicitSystem>("cluster_id");
 
+  //creating pesudo solution field
+  LinearImplicitSystem &system = equation_systems.add_system<LinearImplicitSystem>("random_solution_field");
   DofMap &dof_map = system.get_dof_map();
-  DofMap &local_dof_map = local_system.get_dof_map();
-
-  AddVaribalesToSystem(equation_systems, system, local_system, "random_field",
-                       "cluster_id");
+  AddVaribalesToSystem(equation_systems, system, "random_field");
   PopulateRandomIntegers(mesh, system);
-  FindCluster(mesh, dof_map, local_dof_map, system, local_system,
-              "random_field", equation_systems, index);
+
+  //creating cluster_id_field
+  LinearImplicitSystem &local_system = equation_systems.add_system<LinearImplicitSystem>("cluster_id");
+  DofMap &local_dof_map = local_system.get_dof_map();
+  AddVaribalesToSystem(equation_systems, local_system, "cluster_id_field",true);
+  const unsigned int index = mesh.add_elem_integer("cluster_id");
+  FindCluster(mesh, dof_map, local_dof_map, system, local_system, "random_field", equation_systems, index);
 
   CloseSystems(mesh, system, equation_systems, false);
 
