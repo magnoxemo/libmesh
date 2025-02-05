@@ -68,7 +68,7 @@ const unsigned int FindCluster(libMesh::Mesh &mesh, LinearImplicitSystem &system
                  const std::string & variable_name) {
 
   const unsigned int variable_num = system.variable_number(variable_name);
-  DofMap &dof_map = system.get_dof_map();
+
   const unsigned int index = mesh.add_elem_integer(variable_name);
 
   for (const auto &elem : mesh.element_ptr_range()) {
