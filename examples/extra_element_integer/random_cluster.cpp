@@ -51,6 +51,19 @@ void AddVariablesToSystem(libMesh::EquationSystems &equation_systems,
     }
 }
 
+double GetElementDataFromMesh(LinearImplicitSystem &system,const libMesh::Elem& elem,
+                                    const unsigned int variable_num){
+
+    DofMap &dof_map = system.get_dof_map();
+    std::vector<dof_id_type> dof_indices;
+    dof_map.dof_indices(&elem, dof_indices,variable_num);
+
+    std::vector<double> solution_value(1);
+    system.solution->get(dof_indices, solution_value);
+
+    return static_cast<double> (solution_value[0]);
+}
+
 const unsigned int FindCluster(libMesh::Mesh &mesh, LinearImplicitSystem &system,
                  const std::string & variable_name) {
 
@@ -60,24 +73,14 @@ const unsigned int FindCluster(libMesh::Mesh &mesh, LinearImplicitSystem &system
 
   for (const auto &elem : mesh.element_ptr_range()) {
 
-    std::vector<dof_id_type> global_dof_indices;
-    dof_map.dof_indices(elem, global_dof_indices, variable_num);
-
-    std::vector<double> solution_value(1);
-    system.solution->get(global_dof_indices, solution_value);
-    int element_solution = static_cast<int>(solution_value[0]);
+    int element_solution = static_cast<int>(GetElementDataFromMesh(system,*elem,variable_num));
 
     bool belong_to_a_cluster = false;
     for (unsigned int side = 0; side < elem->n_sides(); ++side) {
       const Elem *neighbor = elem->neighbor_ptr(side);
       if (neighbor) {
-        std::vector<dof_id_type> neighbor_dof_indices;
-        dof_map.dof_indices(neighbor, neighbor_dof_indices, variable_num);
 
-        std::vector<double> neighbor_solution_value(1);
-        system.solution->get(neighbor_dof_indices, neighbor_solution_value);
-        int neighbor_element_solution =
-            static_cast<int>(neighbor_solution_value[0]);
+        int neighbor_element_solution = static_cast<int>(GetElementDataFromMesh(system,*neighbor,variable_num));
 
         if (element_solution == neighbor_element_solution) {
           belong_to_a_cluster = true;
