@@ -6,8 +6,8 @@ int main(int argc, char **argv) {
     LibMeshInit init(argc, argv);
 
     Mesh mesh(init.comm());
-    unsigned int nx = 30;
-    unsigned int ny = 30;
+    unsigned int nx = 4;
+    unsigned int ny = 4;
     srand(time(0));
 
     CreateMesh(mesh, nx, ny);

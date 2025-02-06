@@ -92,7 +92,7 @@ void ApplyRecursiveClustering(LinearImplicitSystem& system, const libMesh::Elem&
 
                 if (BelongToCluster(elem_solution,neighbor_solution)) {
                     //const_cast<libMesh::Elem*>(neighbor)->set_extra_integer(index, elem.get_extra_integer(index));
-                    const_cast<libMesh::Elem*>(neighbor)->set_extra_integer(index, 0); //another horible idea but I am gonna blame paraview here
+                    const_cast<libMesh::Elem*>(neighbor)->set_extra_integer(index, elem.get_extra_integer(index)); //another horible idea but I am gonna blame paraview here
                     ApplyRecursiveClustering(system, parent, const_cast<libMesh::Elem&>(*neighbor), variable_num, index);
                 }
             }
