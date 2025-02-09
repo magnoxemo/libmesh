@@ -8,7 +8,7 @@ int main(int argc, char **argv) {
     Mesh mesh(init.comm());
     unsigned int nx = 4;
     unsigned int ny = 4;
-    srand(time(0));
+    srand(673);
 
     CreateMesh(mesh, nx, ny);
     EquationSystems equation_systems(mesh);
@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
 
     const unsigned int index = FindCluster(mesh, system, "random_field");
     CaptureClusterID(mesh, equation_systems, index);
-    ExodusII_IO(mesh).write_discontinuous_equation_systems("output_rand.e", equation_systems);
+    ExodusII_IO(mesh).write_discontinuous_equation_systems("output.e", equation_systems);
 
     return 0;
 }

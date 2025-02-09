@@ -14,7 +14,6 @@
 #include "libmesh/numeric_vector.h"
 #include "libmesh/system.h"
 
-
 using namespace libMesh;
 
 void CreateMesh(libMesh::Mesh &mesh, int nx, int ny) {
@@ -64,55 +63,70 @@ double GetElementDataFromMesh(LinearImplicitSystem &system,
     return static_cast<double>(solution_value[0]);
 }
 
-void SetElementIDasClusterID(libMesh::Mesh &mesh,unsigned int index){
-    for (const auto &elem:mesh.element_ptr_range()){
-        elem->set_extra_integer(index,elem->id());
+void SetElementIDasClusterID(libMesh::Mesh &mesh, unsigned int index) {
+    for (const auto &elem : mesh.element_ptr_range()) {
+        elem->set_extra_integer(index, elem->id());
     }
 }
 
-bool BelongToCluster(double elem_solution,double neighbor_solution){
-    if (static_cast<int>(elem_solution)==static_cast<int>(neighbor_solution)){
-        //horible idea but for now OK
+bool BelongToCluster(double elem_solution, double neighbor_solution) {
+    if (static_cast<int>(elem_solution) == static_cast<int>(neighbor_solution)) {
+        // horrible idea but for now OK
         return true;
-    }else{
+    } else {
         return false;
     }
 }
 
-void ApplyRecursiveClustering(LinearImplicitSystem& system, const libMesh::Elem& parent_elem, libMesh::Elem& elem, const unsigned int &variable_num, const unsigned int &index) {
-    const libMesh::Elem& parent = parent_elem;
-    if (elem.get_extra_integer(index) == elem.id()) /*failing here */{
-
-        for (unsigned int side = 0; side < elem.n_sides(); side++) {
-            const libMesh::Elem* neighbor = elem.neighbor_ptr(side);
-
-            if (neighbor) {
-                double neighbor_solution = GetElementDataFromMesh(system, *neighbor, variable_num);
-                double elem_solution = GetElementDataFromMesh(system,elem, variable_num);
-
-                if (BelongToCluster(elem_solution,neighbor_solution)) {
-                    //const_cast<libMesh::Elem*>(neighbor)->set_extra_integer(index, elem.get_extra_integer(index));
-                    const_cast<libMesh::Elem*>(neighbor)->set_extra_integer(index, elem.get_extra_integer(index)); //another horible idea but I am gonna blame paraview here
-                    ApplyRecursiveClustering(system, parent, const_cast<libMesh::Elem&>(*neighbor), variable_num, index);
-                }
+void ApplyRecursiveClustering(LinearImplicitSystem &system, unsigned int parent_element_id,
+                              libMesh::Elem &current_elem,
+                              const unsigned int variable_num,
+                              const unsigned int index) {
+    // Iterate through all sides of the current element
+// rewrite everything
+    for (unsigned int side = 0; side < current_elem.n_sides(); side++) {
+        // Get the neighbor element
+         libMesh::Elem *neighbor_elem = current_elem.neighbor_ptr(side);
+        //need to ensure that curent_elem isn't messing with the main one
+        if (neighbor_elem && (neighbor_elem->id() != parent_element_id)) {
+            // goes on only if the test passes
+            double element_solution = GetElementDataFromMesh(system, current_elem, variable_num);
+            double neighbor_solution = GetElementDataFromMesh(system, *neighbor_elem, variable_num);
+            if (BelongToCluster(element_solution, neighbor_solution)) {
+                neighbor_elem->set_extra_integer(index, parent_element_id);
+                std::cout<<"     new element to the cluster = "<<neighbor_elem->id()<< " derived from = "<<current_elem.id()<<std::endl;
+                ApplyRecursiveClustering(system, current_elem.id(), *neighbor_elem, variable_num, index);
             }
         }
     }
+
 }
 
-const unsigned int FindCluster(libMesh::Mesh &mesh, LinearImplicitSystem &system, const std::string &variable_name) {
+const unsigned int FindCluster(libMesh::Mesh &mesh,
+                               LinearImplicitSystem &system,
+                               const std::string &variable_name) {
     const unsigned int variable_num = system.variable_number(variable_name);
     const unsigned int index = mesh.add_elem_integer(variable_name);
 
     SetElementIDasClusterID(mesh, index);
 
     for (const auto &elem : mesh.element_ptr_range()) {
-        if (elem->get_extra_integer(index) == elem->id()) { // If yes, then they aren't part of any cluster
 
             for (unsigned int side = 0; side < elem->n_sides(); side++) {
-                const libMesh::Elem* neighbor = elem->neighbor_ptr(side);
-                if (neighbor) {
-                    ApplyRecursiveClustering(system, *elem, const_cast<libMesh::Elem&>(*neighbor), variable_num, index);
+                if (elem->get_extra_integer(index) == elem->id()) {
+                libMesh::Elem *neighbor_elem = elem->neighbor_ptr(side);
+                if (neighbor_elem) {
+                    double element_solution = GetElementDataFromMesh(system, *elem, variable_num);
+                    double neighbor_solution = GetElementDataFromMesh(system, *neighbor_elem, variable_num);
+                    if (BelongToCluster(element_solution, neighbor_solution)) {
+                        /*I have to pass the parent element here cause there is a big chance when doing it recursively
+                         * the neighbor element would end up setting the extra_integer to the first element
+                         * I have to think about a way to prevent it.
+                         */
+                        neighbor_elem->set_extra_integer(index, elem->id());
+                        std::cout<<"main_element_id = "<<elem->id()<<" cluster_elem_id = "<<neighbor_elem->id()<<std::endl;
+                        ApplyRecursiveClustering(system, elem->id(), *neighbor_elem, variable_num, index);
+                    }
                 }
             }
         }
