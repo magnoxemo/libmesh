@@ -70,7 +70,8 @@ void SetElementIDasClusterID(libMesh::Mesh &mesh, unsigned int index) {
 }
 
 bool BelongToCluster(double elem_solution, double neighbor_solution) {
-    if (static_cast<int>(elem_solution) == static_cast<int>(neighbor_solution)) {
+    const int THRESHOLD = 3;
+    if (static_cast<int>(elem_solution)>THRESHOLD && static_cast<int>(neighbor_solution)>THRESHOLD) {
         // horrible idea but for now OK
         return true;
     } else {
