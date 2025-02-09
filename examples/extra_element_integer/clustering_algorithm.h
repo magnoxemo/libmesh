@@ -82,8 +82,6 @@ void ApplyRecursiveClustering(LinearImplicitSystem &system, unsigned int parent_
                               libMesh::Elem &current_elem,
                               const unsigned int variable_num,
                               const unsigned int index) {
-    // Iterate through all sides of the current element
-// rewrite everything
     for (unsigned int side = 0; side < current_elem.n_sides(); side++) {
         // Get the neighbor element
          libMesh::Elem *neighbor_elem = current_elem.neighbor_ptr(side);
