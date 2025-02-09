@@ -77,29 +77,33 @@ bool BelongToCluster(double elem_solution, double neighbor_solution) {
         return false;
     }
 }
-
 void ApplyRecursiveClustering(LinearImplicitSystem &system, unsigned int parent_element_id,
                               libMesh::Elem &current_elem,
                               const unsigned int variable_num,
-                              const unsigned int index) {
+                              const unsigned int index,
+                              std::unordered_set<unsigned int> &visited_elements) {
+
+    visited_elements.insert(current_elem.id());
     for (unsigned int side = 0; side < current_elem.n_sides(); side++) {
-        // Get the neighbor element
-         libMesh::Elem *neighbor_elem = current_elem.neighbor_ptr(side);
-        //need to ensure that curent_elem isn't messing with the main one
-        if (neighbor_elem && (neighbor_elem->id() != parent_element_id)) {
+        libMesh::Elem *neighbor_elem = current_elem.neighbor_ptr(side);
+        if (neighbor_elem  && (neighbor_elem->id() != parent_element_id)) {
             // goes on only if the test passes
+            //possible issue
+            // I think I have to check with alll the clustered elements and ensure they don't get repeated
+            if (visited_elements.find(neighbor_elem->id()) != visited_elements.end()) {
+                continue;
+            }
+
             double element_solution = GetElementDataFromMesh(system, current_elem, variable_num);
             double neighbor_solution = GetElementDataFromMesh(system, *neighbor_elem, variable_num);
             if (BelongToCluster(element_solution, neighbor_solution)) {
                 neighbor_elem->set_extra_integer(index, parent_element_id);
-                std::cout<<"     new element to the cluster = "<<neighbor_elem->id()<< " derived from = "<<current_elem.id()<<std::endl;
-                ApplyRecursiveClustering(system, current_elem.id(), *neighbor_elem, variable_num, index);
+                std::cout << "     new element to the cluster = " << neighbor_elem->id()<< " derived from = " << current_elem.id() << std::endl;
+                ApplyRecursiveClustering(system, current_elem.id(), *neighbor_elem, variable_num, index, visited_elements);
             }
         }
     }
-
 }
-
 const unsigned int FindCluster(libMesh::Mesh &mesh,
                                LinearImplicitSystem &system,
                                const std::string &variable_name) {
@@ -120,10 +124,16 @@ const unsigned int FindCluster(libMesh::Mesh &mesh,
                         /*I have to pass the parent element here cause there is a big chance when doing it recursively
                          * the neighbor element would end up setting the extra_integer to the first element
                          * I have to think about a way to prevent it.
+                         * segfault error is happening in some cases due to over recursion.
+                         * pattern         1062,1063
+                         *              62,63
+                         * maybe keep track which elements are clustered temporarily?
                          */
                         neighbor_elem->set_extra_integer(index, elem->id());
                         std::cout<<"main_element_id = "<<elem->id()<<" cluster_elem_id = "<<neighbor_elem->id()<<std::endl;
-                        ApplyRecursiveClustering(system, elem->id(), *neighbor_elem, variable_num, index);
+                        std::unordered_set<unsigned int> visited_elements;
+                        ApplyRecursiveClustering(system, elem->id(), *neighbor_elem, variable_num, index, visited_elements);
+                        visited_elements.clear();
                     }
                 }
             }
