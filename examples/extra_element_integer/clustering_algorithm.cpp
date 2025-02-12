@@ -69,13 +69,9 @@ bool BelongToCluster(libMesh::Elem *elem, libMesh::Elem *neighbor_elem,
   double element_solution = GetElementDataFromMesh(system, elem, variable_num);
   double neighbor_solution =
       GetElementDataFromMesh(system, neighbor_elem, variable_num);
-  if (static_cast<int>(element_solution) ==
-      static_cast<int>(neighbor_solution)) {
+  return (static_cast<int>(element_solution) ==
+      static_cast<int>(neighbor_solution)) ;
 
-    return true;
-  } else {
-    return false;
-  }
 }
 
 const unsigned int FindCluster(libMesh::Mesh &mesh,
@@ -100,7 +96,10 @@ const unsigned int FindCluster(libMesh::Mesh &mesh,
         for (unsigned int s = 0; s < test_elem->n_sides(); s++) {
           libMesh::Elem *neighbor_elem = test_elem->neighbor_ptr(s);
           if (neighbor_elem &&
-              neighbor_elem->get_extra_integer(index) == not_visited) {
+              neighbor_elem->get_extra_integer(index) == not_visited) // may  not necessary,
+              // it would be handled by the previous logic in line 96
+              //but keeping it documented for future ref
+               {
             neighbor_stack.push(neighbor_elem);
           }
         }
