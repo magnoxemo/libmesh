@@ -50,12 +50,12 @@ void AddVariablesToSystem(libMesh::EquationSystems &equation_systems,
 }
 
 double GetElementDataFromMesh(LinearImplicitSystem &system,
-                              const libMesh::Elem &elem,
+                              const libMesh::Elem *elem,
                               const unsigned int variable_num) {
 
   DofMap &dof_map = system.get_dof_map();
   std::vector<dof_id_type> dof_indices;
-  dof_map.dof_indices(&elem, dof_indices, variable_num);
+  dof_map.dof_indices(elem, dof_indices, variable_num);
 
   std::vector<double> solution_value(1);
   system.solution->get(dof_indices, solution_value);
@@ -63,39 +63,47 @@ double GetElementDataFromMesh(LinearImplicitSystem &system,
   return static_cast<double>(solution_value[0]);
 }
 
+bool BelongToCluster(libMesh::Elem *elem, libMesh::Elem *neighbor_elem,
+                     int variable_num, libMesh::LinearImplicitSystem &system) {
+
+  double element_solution = GetElementDataFromMesh(system, elem, variable_num);
+  double neighbor_solution =
+      GetElementDataFromMesh(system, neighbor_elem, variable_num);
+  return (static_cast<int>(element_solution) ==
+      static_cast<int>(neighbor_solution)) ;
+
+}
+
 const unsigned int FindCluster(libMesh::Mesh &mesh,
-                               LinearImplicitSystem &system,
+                               libMesh::LinearImplicitSystem &system,
                                const std::string &variable_name) {
-
   const unsigned int variable_num = system.variable_number(variable_name);
-
-  const unsigned int index = mesh.add_elem_integer(variable_name);
+  int not_visited = -1;
+  const unsigned int index = mesh.add_elem_integer(variable_name, not_visited);
+  std::stack<libMesh::Elem *> neighbor_stack;
 
   for (const auto &elem : mesh.element_ptr_range()) {
+    neighbor_stack.push(elem);
+    int cluster_id = elem->id();
 
-    int element_solution =
-        static_cast<int>(GetElementDataFromMesh(system, *elem, variable_num));
+    while (!neighbor_stack.empty()) {
+      libMesh::Elem *test_elem = neighbor_stack.top();
+      neighbor_stack.pop();
+      if (test_elem->get_extra_integer(index) == not_visited &&
+          BelongToCluster(elem, test_elem, variable_num, system)) {
 
-    bool belong_to_a_cluster = false;
-    for (unsigned int side = 0; side < elem->n_sides(); ++side) {
-      const Elem *neighbor = elem->neighbor_ptr(side);
-      if (neighbor) {
-
-        int neighbor_element_solution = static_cast<int>(
-            GetElementDataFromMesh(system, *neighbor, variable_num));
-
-        if (element_solution == neighbor_element_solution) {
-          belong_to_a_cluster = true;
-          // Danger Zone for future ref
-          // cluster_id should never be equal to element_solution
-          unsigned int cluster_id = element_solution;
-          elem->set_extra_integer(index, cluster_id);
-          break;
+        test_elem->set_extra_integer(index, cluster_id);
+        for (unsigned int s = 0; s < test_elem->n_sides(); s++) {
+          libMesh::Elem *neighbor_elem = test_elem->neighbor_ptr(s);
+          if (neighbor_elem &&
+              neighbor_elem->get_extra_integer(index) == not_visited) // may  not necessary,
+              // it would be handled by the previous logic in line 96
+              //but keeping it documented for future ref
+               {
+            neighbor_stack.push(neighbor_elem);
+          }
         }
       }
-    }
-    if (!belong_to_a_cluster) {
-      elem->set_extra_integer(index, 0);
     }
   }
   return index;
@@ -132,15 +140,12 @@ int main(int argc, char **argv) {
   LibMeshInit init(argc, argv);
 
   Mesh mesh(init.comm());
-  unsigned int nx = 40;
-  unsigned int ny = 40;
-  srand(time(0));
+  unsigned int nx = 5;
+  unsigned int ny = 5;
+  srand(673);
 
   CreateMesh(mesh, nx, ny);
-
   EquationSystems equation_systems(mesh);
-
-  // creating pesudo solution field
   LinearImplicitSystem &system =
       equation_systems.add_system<LinearImplicitSystem>(
           "random_solution_field");
@@ -149,11 +154,7 @@ int main(int argc, char **argv) {
 
   const unsigned int index = FindCluster(mesh, system, "random_field");
   CaptureClusterID(mesh, equation_systems, index);
-
-  PrintSystemInformation(mesh, equation_systems);
-
-  ExodusII_IO(mesh).write_discontinuous_equation_systems("output_rand.e",
+  ExodusII_IO(mesh).write_discontinuous_equation_systems("output_new.e",
                                                          equation_systems);
-
   return 0;
 }
